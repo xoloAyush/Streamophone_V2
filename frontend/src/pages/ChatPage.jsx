@@ -1,137 +1,123 @@
-// ChatPage.jsx
-import { useEffect, useState } from "react";
 import { useParams } from "react-router";
-import useAuthUser from "../hooks/userAuthUser";
-import { useQuery } from "@tanstack/react-query";
-import { getStreamToken, getUserById } from "../lib/api";
-import AIMessageComposer from "../components/AIMessageComposer";
+import { useCallback,useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import {
-  Chat,
-  Channel,
-  Window,
-  ChannelHeader,
-  MessageList,
-  MessageComposer,
-  Thread,
-} from "stream-chat-react";
-import { StreamChat } from "stream-chat";
-import toast from "react-hot-toast";
+import useChat from "../hooks/useChat";
+import useSocket from "../hooks/useSocket";
+import { socket } from "../lib/socket";
 
-import ChatLoader from "../components/ChatLoader";
-import CallButton from "../components/CallButton";
+import ChatHeader from "../components/chat/ChatHeader";
+import MessageList from "../components/chat/MessageList";
+import MessageInput from "../components/chat/MessageInput";
 
-const STREAM_API_KEY = import.meta.env.VITE_STREAM_API_KEY;
+import { uploadImage } from "../lib/uploadImage";
 
-const ChatPage = () => {
-  const { id: targetUserId } = useParams();
+function ChatPage() {
+  const { id: friendId } = useParams();
 
-  const [chatClient, setChatClient] = useState(null);
-  const [channel, setChannel] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const { authUser } = useAuthUser();
+  const {
+    friend,
+    // conversation,
+    messages,
+    isLoading,
+  } = useChat(friendId);
 
-  const { data: tokenData } = useQuery({
-    queryKey: ["streamToken"],
-    queryFn: getStreamToken,
-    enabled: !!authUser,
-  });
-  console.log(targetUserId)
+  const handleSend = useCallback(async ({ text, media  }) => 
+    {
 
-  const { data: targetUser } = useQuery({
-  queryKey: ["user", targetUserId],
-  queryFn: () => getUserById({id: targetUserId}),
-  enabled: !!targetUserId,
-});
+    let attachments = [];
+    let type = "text";
 
-  useEffect(() => {
-    const initChat = async () => {
-      if (!tokenData?.token || !authUser) return;
+    if (media ) {
+    // const response = await uploadImage(media );
+    const response = await uploadImage(media, (pct) => console.log(`${pct}%`));
 
-      console.log(targetUserId)
+    attachments = [
+        {
+            url: response.url,
+            mimeType: media.type,
+            manifestId: response.manifestId ?? null,
+            fileName: media.name,
+            size: media.size,
+        },
+    ];
 
-      try {
-        const client = StreamChat.getInstance(STREAM_API_KEY);
+     type = media.type.startsWith("video/")
+    ? "video"
+    : "image";
+}
 
-        await client.connectUser(
-          {
-            id: authUser._id,
-            name: authUser.fullName,
-            image: authUser.profilePic,
-          },
-          tokenData.token
-        );
+const payload = {
+  receiverId: friend._id,
+  text,
+  type,
+  attachments,
+};
 
-        const channelId = [authUser._id, targetUserId].sort().join("-");
+// console.log("Sending:", payload);
 
-        const currChannel = client.channel("messaging", channelId, {
-          members: [authUser._id, targetUserId],
-        });
+socket.emit("send-message", payload);
+    return friend._id
+  },
+  [friend]
+);
 
-        await currChannel.watch();
+  const handleReceive = useCallback(
+    (message) => {
+      // console.log("Received message:", message);
 
-        setChatClient(client);
-        setChannel(currChannel);
-      } catch (error) {
-        console.error("Error initializing chat:", error);
-        toast.error("Could not connect to chat. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      queryClient.setQueryData(["chat", friendId], (old) => {
+        // console.log("Old cache:", old);
 
-    initChat();
-  }, [tokenData, authUser, targetUserId]);
+        if (!old) return old;
 
-  const handleVideoCall = () => {
-    if (channel) {
-      const callUrl = `${window.location.origin}/call/${channel.id}`;
-      channel.sendMessage({
-        text: `I've started a video call. Join me here: ${callUrl}`,
+        return {
+          ...old,
+          messages: [...old.messages, message],
+        };
       });
-      toast.success("Video call link sent successfully!");
-    }
-  };
+    },
+    [friendId, queryClient]
+  );
 
-  if (loading || !chatClient || !channel) return <ChatLoader />;
+  const events = useMemo(
+  () => ({
+    "receive-message": handleReceive,
+  }),
+  [handleReceive]
+);
+
+useSocket(events);
+
+  // useSocket({"receive-message": handleReceive});
+
+  if (isLoading) {
+    return (
+      <div className="flex w-full h-full items-center justify-center">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+  }
 
   return (
-    // Height-constrained on EVERY breakpoint, using dvh (safe on mobile
-    // browsers where the address bar changes the viewport height).
-    // Adjust the offset (e.g. 7vh/11vh) to match your navbar's actual height.
-    <div className="h-[93dvh] h-[93vh] w-full overflow-hidden">
-      <Chat client={chatClient}>
-        <Channel channel={channel}>
-          {/* Window is the flex column that owns the whole chat area */}
-          <Window>
-            <div className="flex flex-col h-full w-full bg-base-100">
-              {/* HEADER — fixed height, never shrinks/scrolls */}
-              <div className="flex items-center gap-2 sm:gap-3 border-b border-base-300 px-2 sm:px-4 py-2 shrink-0">
-                <CallButton handleVideoCall={handleVideoCall} />
-                <div className="flex-1 min-w-0">
-                  <ChannelHeader />
-                </div>
-              </div>
+    <div className="flex flex-col h-full">
 
-              {/* MESSAGE LIST — the ONLY scrollable region, on every breakpoint */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-                <MessageList />
-              </div>
+      <ChatHeader
+        friend={friend}
+      />
 
-              {/* COMPOSER AREA — fixed height, pinned at bottom of the flex column,
-                  respects the iOS home-indicator safe area */}
-              <div className="shrink-0 border-t border-base-300 bg-base-100 pb-[env(safe-area-inset-bottom)]">
-                <AIMessageComposer targetUser={targetUser}/>
-                <MessageComposer focus />
-              </div>
-            </div>
-          </Window>
-          <Thread />
-        </Channel>
-      </Chat>
+      <MessageList
+        messages={messages}
+      />
+
+      <MessageInput
+        onSend={handleSend}
+      />
+
     </div>
   );
-};
+}
 
 export default ChatPage;

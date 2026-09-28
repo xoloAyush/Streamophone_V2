@@ -1,5 +1,4 @@
-// AIMessageComposer.jsx
-import { useMessageComposerController } from "stream-chat-react";
+
 import { useAI } from "../hooks/useAI";
 import toast from "react-hot-toast";
 import useAuthUser from "../hooks/userAuthUser";
@@ -28,31 +27,31 @@ const AIMessageComposer = ({ targetUser }) => {
       toast.error(err.message || errMsg);
     }
   };
-  
+
 
   const handleTranslate = () => {
-  const currentText = textComposer.text.trim();
-  
-  console.log({
-  text: translate,
-  from: authUser.nativeLanguage,
-  to: targetUser,
-});
+    const currentText = textComposer.text.trim();
 
-  if (!currentText) {
-    return toast.error("Please type a message first.");
-    
-  }
-
-  runAndSet(
-    translate,
-    {
+    console.log({
+      text: translate,
       from: authUser.nativeLanguage,
-      to: targetUser.nativeLanguage,
-    },
-    "Translation failed"
-  );
-};
+      to: targetUser,
+    });
+
+    if (!currentText) {
+      return toast.error("Please type a message first.");
+
+    }
+
+    runAndSet(
+      translate,
+      {
+        from: authUser.nativeLanguage,
+        to: targetUser.nativeLanguage,
+      },
+      "Translation failed"
+    );
+  };
   const handleImprove = () => runAndSet(improve, {}, "Improve failed");
   const handleFriendly = () => runAndSet(friendly, {}, "Friendly rewrite failed");
   const handleFormal = () => runAndSet(formal, {}, "Formal rewrite failed");

@@ -48,7 +48,7 @@ const hasActiveFilters =
   const { data: friends = [], isLoading: loadingFriends } = useQuery({
     queryKey: ["friends"],
     queryFn: getUserFriends,
-  //   staleTime: 1000 * 30,
+    // staleTime: 1000 * 60 * 30,
   // refetchOnWindowFocus: false,
   // refetchOnReconnect: false,
   });

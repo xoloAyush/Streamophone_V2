@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ChatPage from "./pages/ChatPage";
 import CallPage from "./pages/CallPage";
+import AgentChatPage from './pages/AgentChatPage'
 import NotificationPage from "./pages/NotificationPage";
 import OnBoardPage from "./pages/OnBoardPage";
 import { Toaster } from "react-hot-toast";
@@ -13,6 +14,10 @@ import Layout from "./components/Layout";
 import { useThemeStore } from "./hooks/useThemeStore";
 import PageLoader from "./components/PageLoader";
 import FriendsPage from "./pages/FriendsPage";
+import Agent from "./pages/Agent"
+import { socket } from "./lib/socket";
+import { useEffect } from "react";
+import TestSupabase from './pages/TestSupabase'
 
 function App() {
 
@@ -34,18 +39,32 @@ function App() {
 
 const {authUser , isLoading} = useAuthUser()
 const {theme} = useThemeStore()
-// const authUser = authData?.user
-  // console.log(error)
-  // console.log(isLoading)
-
-//   console.log({
-//   authUser,
-//   isAuthenticated: Boolean(authUser),
-//   isLoading,
-// });
 
   const isAuthenticated = Boolean(authUser)
   const isOnboarded = authUser?.isOnboarded
+
+  useEffect(() => {
+  if (isLoading) return;
+
+  if (authUser && !socket.connected) {
+    socket.connect();
+
+//     socket.emit("send-message", {
+//     receiverId: "123",
+//     text: "Hello"
+// });
+  }
+
+  if (!authUser && socket.connected) {
+    socket.disconnect();
+  }
+
+  return () => {
+    if (socket.connected) {
+      socket.disconnect();
+    }
+  };
+}, [authUser, isLoading]);
   
   if (isLoading){
     return <PageLoader/>
@@ -70,6 +89,8 @@ const {theme} = useThemeStore()
     path="/login"
     element={!isAuthenticated ? <LoginPage /> : <Navigate to="/onboarding" />}
   />
+
+ 
 
   <Route
     path="/signup"
@@ -115,6 +136,32 @@ const {theme} = useThemeStore()
     </Layout> ) : 
       (<Navigate to={isAuthenticated ? "/onboarding" : "/login"} replace /> )}
   />
+
+   <Route
+    path="/supabase"
+    element={isAuthenticated && isOnboarded ? ( 
+      <Layout showSidebar={true}>
+    <TestSupabase />
+    </Layout> ) : 
+      (<Navigate to={isAuthenticated ? "/onboarding" : "/login"} replace /> )}
+  />
+
+  <Route
+    path="/agents"
+    element={isAuthenticated && isOnboarded ? ( 
+      <Layout showSidebar={true}>
+    <Agent />
+    </Layout> ) : 
+      (<Navigate to={isAuthenticated ? "/onboarding" : "/login"} replace /> )}  />
+
+    <Route
+  path="/agents/:agentId/chat"
+  element={isAuthenticated && isOnboarded ? ( 
+      <Layout showSidebar={true}>
+    <AgentChatPage />
+    </Layout> ) : 
+      (<Navigate to={isAuthenticated ? "/onboarding" : "/login"} replace /> )}  />
+
 </Routes>
 
 <Toaster/>

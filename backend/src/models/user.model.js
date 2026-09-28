@@ -45,6 +45,18 @@ const userSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    phoneNumber: {
+      type: String, unique: true, sparse: true
+    },
+    phoneSuffix: {
+      type: String, unique : false
+    },
+    lastSeen: { type: Date},
+    isOnline: { type: Boolean, default: true},
+    agreed: { type: Boolean, default: false},
+    emailOtp: { type: String},
+    emailOtpExpiry: { type: Date},
+    isVeified: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

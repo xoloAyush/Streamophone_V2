@@ -56,6 +56,16 @@ const Sidebar = () => {
           <BellIcon className="size-5  opacity-70" />
           <span>Notifications</span>
         </Link>
+
+        <Link
+          to="/agents"
+          className={`btn btn-ghost justify-start w-full gap-3 px-3 normal-case  ${
+            currentPath === "/agents" ? "btn-active" : ""
+          }`}
+        >
+          <UsersIcon className="size-5  opacity-70" />
+          <span>Agents</span>
+        </Link>
       </nav>
         
         {/* USER PROFILE SECTION */}
